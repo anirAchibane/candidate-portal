@@ -1,25 +1,46 @@
-import { createRouter, createWebHashHistory } from 'vue-router'
-import HomeView from '../views/HomeView.vue'
+import { createRouter, createWebHistory } from 'vue-router'
+import JobOffersView from '../views/JobOffersView.vue'
+import JobOfferDetailView from '../views/JobOfferDetailView.vue'
+import ApplyView from '../views/ApplyView.vue'
+import ApplicationSuccessView from '../views/ApplicationSuccessView.vue'
 
 const routes = [
   {
     path: '/',
-    name: 'home',
-    component: HomeView
+    name: 'JobOffers',
+    component: JobOffersView
   },
   {
-    path: '/about',
-    name: 'about',
-    // route level code-splitting
-    // this generates a separate chunk (about.[hash].js) for this route
-    // which is lazy-loaded when the route is visited.
-    component: () => import(/* webpackChunkName: "about" */ '../views/AboutView.vue')
+    path: '/offers/:id',
+    name: 'JobOfferDetail',
+    component: JobOfferDetailView,
+    props: true
+  },
+  {
+    path: '/apply',
+    name: 'GeneralApply',
+    component: ApplyView,
+    props: { general: true }
+  },
+  {
+    path: '/apply/:offerId',
+    name: 'ApplyToOffer',
+    component: ApplyView,
+    props: true
+  },
+  {
+    path: '/success',
+    name: 'ApplicationSuccess',
+    component: ApplicationSuccessView
   }
 ]
 
 const router = createRouter({
-  history: createWebHashHistory(),
-  routes
+  history: createWebHistory(),
+  routes,
+  scrollBehavior () {
+    return { top: 0 }
+  }
 })
 
 export default router

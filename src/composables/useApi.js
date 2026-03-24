@@ -3,8 +3,8 @@
 
 import { ref } from 'vue'
 
-const SUPABASE_URL = import.meta.env.VUE_APP_SUPABASE_URL
-const SUPABASE_ANON_KEY = import.meta.env.VUE_APP_SUPABASE_ANON_KEY
+const SUPABASE_URL = process.env.VUE_APP_SUPABASE_URL
+const SUPABASE_ANON_KEY = process.env.VUE_APP_SUPABASE_ANON_KEY
 
 async function callEdgeFunction (fnName, options = {}) {
   const { method = 'GET', body, params } = options

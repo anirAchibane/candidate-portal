@@ -34,7 +34,7 @@ interface SFSkill {
 
 interface SFOfferSkill {
   Id: string;
-  Weight__c: number | null;
+  Required_Level__c: number | null;
   Skill__r: SFSkill;
 }
 
@@ -78,7 +78,7 @@ function transformDetail(record: SFJobOfferDetail) {
     record.OfferSkills__r?.records?.map((os) => ({
       Id: os.Id,
       Name: os.Skill__r?.Name ?? "",
-      Weight__c: os.Weight__c ?? 1,
+      Weight__c: os.Required_Level__c ?? 1,
     })) ?? [];
 
   return { ...base, Skills: skills };
@@ -105,9 +105,9 @@ function detailSoql(id: string): string {
       Id, Name, Title_c__c, Description_c__c, OfferType__c,
       Experience_Min_c__c, CreatedDate,
       (
-        SELECT Id, Weight__c, Skill__r.Id, Skill__r.Name
+        SELECT Id, Required_Level__c, Skill__r.Id, Skill__r.Name
         FROM OfferSkills__r
-        ORDER BY Weight__c DESC NULLS LAST
+        ORDER BY Required_Level__c DESC NULLS LAST
       )
     FROM JobOffer__c
     WHERE Id = '${safeId}'

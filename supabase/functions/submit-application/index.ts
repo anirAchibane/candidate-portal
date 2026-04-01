@@ -59,10 +59,10 @@ function validateEmail(email: string): boolean {
 
 function validatePayload(payload: Partial<CandidatePayload>): string | null {
   if (!payload.firstName?.trim()) return "firstName is required";
-  if (!payload.lastName?.trim())  return "lastName is required";
-  if (!payload.email?.trim())     return "email is required";
+  if (!payload.lastName?.trim()) return "lastName is required";
+  if (!payload.email?.trim()) return "email is required";
   if (!validateEmail(payload.email)) return "email is invalid";
-  if (!payload.cvFile)            return "CV file is required";
+  if (!payload.cvFile) return "CV file is required";
   if (payload.cvFile.type !== "application/pdf") return "CV must be a PDF";
   if (payload.cvFile.size > 10 * 1024 * 1024) return "CV must be under 10 MB";
   return null;
@@ -86,10 +86,10 @@ async function parseForm(req: Request): Promise<CandidatePayload> {
 
   return {
     firstName: String(form.get("firstName") ?? "").trim(),
-    lastName:  String(form.get("lastName")  ?? "").trim(),
-    email:     String(form.get("email")     ?? "").trim().toLowerCase(),
-    phone:     String(form.get("phone")     ?? "").trim(),
-    offerId:   form.get("offerId") ? String(form.get("offerId")).trim() : null,
+    lastName: String(form.get("lastName") ?? "").trim(),
+    email: String(form.get("email") ?? "").trim().toLowerCase(),
+    phone: String(form.get("phone") ?? "").trim(),
+    offerId: form.get("offerId") ? String(form.get("offerId")).trim() : null,
     cvFile,
   };
 }
@@ -104,7 +104,7 @@ async function uploadToStorage(
 
   // Build a deterministic storage path to deduplicate re-uploads
   const timestamp = Date.now();
-  const safeName  = `${payload.lastName}_${payload.firstName}`
+  const safeName = `${payload.lastName}_${payload.firstName}`
     .toLowerCase()
     .replace(/[^a-z0-9]/g, "_");
   const storageKey = `${safeName}_${timestamp}.pdf`;
@@ -154,14 +154,14 @@ async function upsertLead(
   offerId: string | null
 ): Promise<{ leadId: string; created: boolean }> {
   const fields: Record<string, unknown> = {
-    FirstName:   payload.firstName,
-    LastName:    payload.lastName,
-    Email:       payload.email,
-    Phone:       payload.phone || null,
-    Company:     "Candidate", // required field on Lead — placeholder
+    FirstName: payload.firstName,
+    LastName: payload.lastName,
+    Email: payload.email,
+    Phone: payload.phone || null,
+    Company: "Candidate", // required field on Lead — placeholder
     RecordTypeId: Deno.env.get("SF_LEAD_RECORD_TYPE_ID") ?? undefined,
-    LeadSource:  "Web",
-    Status:      "New",
+    LeadSource: "Web",
+    Status: "New",
   };
 
   // Optionally link to the target job offer
@@ -188,10 +188,10 @@ async function createApplication(
   offerId: string | null
 ): Promise<string> {
   const fields: Record<string, unknown> = {
-    Candidate__c:       leadId,
+    Candidate__c: leadId,
     Submission_Date__c: new Date().toISOString().split("T")[0], // YYYY-MM-DD
-    Status__c:          "New",
-    Total_Score__c:     null, // will be populated by n8n/AI pipeline
+    Status__c: "New",
+    Total_Score__c: null, // will be populated by n8n/AI pipeline
   };
 
   if (offerId) {
@@ -211,12 +211,17 @@ async function attachCvToLead(
   const arrayBuffer = await payload.cvFile.arrayBuffer();
   const bytes = new Uint8Array(arrayBuffer);
 
-  // Convert to Base64 for Salesforce Files API
-  let binary = "";
-  for (let i = 0; i < bytes.byteLength; i++) {
-    binary += String.fromCharCode(bytes[i]);
-  }
-  const base64 = btoa(binary);
+  // OPTIMIZED: Use a standard helper or a more memory-efficient approach
+  // Instead of a manual loop, use the built-in encoding
+  const base64 = btoa(
+    Array.from(bytes)
+      .map((b) => String.fromCharCode(b))
+      .join("")
+  );
+
+  // OR EVEN BETTER (if using Deno's std library is an option):
+  // import { encodeBase64 } from "jsr:@std/encoding/base64";
+  // const base64 = encodeBase64(bytes);
 
   const fileName = `CV_${payload.lastName}_${payload.firstName}.pdf`;
 
@@ -228,27 +233,26 @@ async function attachCvToLead(
     `Resume submitted via candidate portal`
   );
 }
-
 // ─── Step 7: Trigger n8n webhook ─────────────────────────────────────────────
 
 interface N8nPayload {
-  event:          "application.submitted";
-  applicationId:  string;
-  leadId:         string;
-  offerId:        string | null;
+  event: "application.submitted";
+  applicationId: string;
+  leadId: string;
+  offerId: string | null;
   candidate: {
-    firstName:    string;
-    lastName:     string;
-    email:        string;
-    phone:        string;
+    firstName: string;
+    lastName: string;
+    email: string;
+    phone: string;
   };
   cv: {
-    storageKey:   string;
-    signedUrl:    string;   // time-limited URL for n8n to download the file
-    mimeType:     "application/pdf";
-    fileName:     string;
+    storageKey: string;
+    signedUrl: string;   // time-limited URL for n8n to download the file
+    mimeType: "application/pdf";
+    fileName: string;
   };
-  submittedAt:    string;
+  submittedAt: string;
 }
 
 async function triggerN8n(webhookPayload: N8nPayload): Promise<void> {
@@ -278,6 +282,9 @@ async function triggerN8n(webhookPayload: N8nPayload): Promise<void> {
 // ─── Main handler ─────────────────────────────────────────────────────────────
 
 Deno.serve(async (req: Request) => {
+  console.log("--- New Request Received ---");
+  console.log("Method:", req.method);
+  console.log("Content-Type:", req.headers.get("content-type"));
   if (req.method === "OPTIONS") return preflight();
 
   if (req.method !== "POST") {
@@ -285,9 +292,14 @@ Deno.serve(async (req: Request) => {
   }
 
   // ── Supabase admin client (service role — bypasses RLS for storage) ──
-  const supabaseUrl     = Deno.env.get("SUPABASE_URL")!;
-  const serviceRoleKey  = Deno.env.get("SERVICE_ROLE_KEY")!;
+  
+  const supabaseUrl = Deno.env.get("SUPABASE_URL") || "http://kong:8000";
+    const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY"); 
 
+    if (!serviceRoleKey) {
+      console.error("FATAL: SUPABASE_SERVICE_ROLE_KEY is missing!");
+      return new Response(JSON.stringify({ error: "Server config error" }), { status: 500 });
+    }
   if (!supabaseUrl || !serviceRoleKey) {
     return errorResponse("Supabase environment not configured", 500);
   }
@@ -315,11 +327,24 @@ Deno.serve(async (req: Request) => {
     // ── 3. Generate signed URL for n8n ──
     const signedUrl = await getSignedUrl(supabase, storageKey);
 
-    // ── 4. Upsert Lead in Salesforce ──
-    console.log("[submit-application] Upserting Lead in Salesforce...");
-    const { leadId, created } = await upsertLead(sf, payload, payload.offerId);
-    console.log(`[submit-application] Lead ${created ? "created" : "updated"}: ${leadId}`);
+    // ── 4. Create Lead in Salesforce ──
+console.log("[submit-application] Creating Lead in Salesforce...");
 
+// Préparation des données pour Salesforce
+// Note : Le champ 'Company' est obligatoire pour l'objet Lead
+const leadData = {
+  FirstName: payload.firstName,
+  LastName: payload.lastName,
+  Email: payload.email,
+  Phone: payload.phone || '',
+  Company: `${payload.firstName} ${payload.lastName}`, // Valeur par défaut requise
+  Status: 'Open - Not Contacted'
+};
+
+// On utilise 'create' pour éviter l'erreur NOT_FOUND de l'upsert
+const leadId = await sf.create("Lead", leadData);
+
+console.log(`[submit-application] Lead created successfully: ${leadId}`);
     // ── 5. Create Application__c ──
     console.log("[submit-application] Creating Application__c...");
     const applicationId = await createApplication(sf, leadId, payload.offerId);
@@ -337,28 +362,28 @@ Deno.serve(async (req: Request) => {
     // ── 7. Trigger n8n ──
     console.log("[submit-application] Triggering n8n webhook...");
     await triggerN8n({
-      event:         "application.submitted",
+      event: "application.submitted",
       applicationId,
       leadId,
-      offerId:       payload.offerId,
+      offerId: payload.offerId,
       candidate: {
-        firstName:   payload.firstName,
-        lastName:    payload.lastName,
-        email:       payload.email,
-        phone:       payload.phone,
+        firstName: payload.firstName,
+        lastName: payload.lastName,
+        email: payload.email,
+        phone: payload.phone,
       },
       cv: {
         storageKey,
         signedUrl,
-        mimeType:    "application/pdf",
-        fileName:    `CV_${payload.lastName}_${payload.firstName}.pdf`,
+        mimeType: "application/pdf",
+        fileName: `CV_${payload.lastName}_${payload.firstName}.pdf`,
       },
       submittedAt: new Date().toISOString(),
     });
 
     // ── 8. Return result ──
     const result: SubmitResult = {
-      success:       true,
+      success: true,
       leadId,
       applicationId,
       storageKey,

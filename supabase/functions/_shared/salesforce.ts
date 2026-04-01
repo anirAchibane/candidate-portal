@@ -160,7 +160,7 @@ export function createSalesforceClient(): SalesforceClient {
   async function query<T>(soql: string): Promise<T[]> {
     const encoded = encodeURIComponent(soql);
     const res = await sfFetch(
-      `/services/data/v60.0/query/?q=${encoded}`
+      `/services/data/v58.0/query/?q=${encoded}`
     );
 
     if (!res.ok) {
@@ -192,17 +192,26 @@ export function createSalesforceClient(): SalesforceClient {
   }
 
   // Create a new Salesforce record, returns the new record Id
+  // Create a new Salesforce record, returns the new record Id
   async function create(
     objectName: string,
     fields: Record<string, unknown>
   ): Promise<string> {
-    const res = await sfFetch(`/services/data/v60.0/sobjects/${objectName}/`, {
+    // We use v58.0 here as it is the most stable version for Developer Orgs
+    const path = `/services/data/v58.0/sobjects/${objectName}/`;
+    
+    console.log(`[DEBUG] Salesforce POST Path: ${path}`);
+    console.log(`[DEBUG] Sending Fields:`, JSON.stringify(fields));
+
+    const res = await sfFetch(path, {
       method: "POST",
       body: JSON.stringify(fields),
     });
 
     if (!res.ok) {
       const body = await res.text();
+      // This log will finally show us the REAL reason for the NOT_FOUND
+      console.error(`[DEBUG] Salesforce Create Error Body: ${body}`);
       throw new Error(`Salesforce create (${objectName}) failed: ${body}`);
     }
 
@@ -218,7 +227,7 @@ export function createSalesforceClient(): SalesforceClient {
     fields: Record<string, unknown>
   ): Promise<{ id: string; created: boolean }> {
     const res = await sfFetch(
-      `/services/data/v60.0/sobjects/${objectName}/${externalIdField}/${encodeURIComponent(externalId)}`,
+      `/services/data/v58.0/sobjects/${objectName}/${externalIdField}/${encodeURIComponent(externalId)}`,
       {
         method: "PATCH",
         body: JSON.stringify(fields),
@@ -261,7 +270,7 @@ export function createSalesforceClient(): SalesforceClient {
     description = ""
   ): Promise<string> {
     // Step 1: Create ContentVersion (the file itself)
-    const cvRes = await sfFetch("/services/data/v60.0/sobjects/ContentVersion/", {
+    const cvRes = await sfFetch("/services/data/v58.0/sobjects/ContentVersion/", {
       method: "POST",
       body: JSON.stringify({
         Title: fileName,
@@ -291,7 +300,7 @@ export function createSalesforceClient(): SalesforceClient {
     const contentDocumentId = cvRecord.ContentDocumentId;
 
     // Step 3: Link the document to the parent record via ContentDocumentLink
-    await sfFetch("/services/data/v60.0/sobjects/ContentDocumentLink/", {
+    await sfFetch("/services/data/v58.0/sobjects/ContentDocumentLink/", {
       method: "POST",
       body: JSON.stringify({
         ContentDocumentId: contentDocumentId,

@@ -189,13 +189,13 @@ async function createApplication(
 ): Promise<string> {
   const fields: Record<string, unknown> = {
     Candidate__c: leadId,
-    Submission_Date__c: new Date().toISOString().split("T")[0], // YYYY-MM-DD
-    Status__c: "New",
-    Total_Score__c: null, // will be populated by n8n/AI pipeline
+    Application_Date_c__c: new Date().toISOString().split("T")[0], // YYYY-MM-DD
+    AppStatus__c: "InProgress",
+    Total_Score_c__c: null, // will be populated by n8n/AI pipeline
   };
 
   if (offerId) {
-    fields["Job_Offer__c"] = offerId;
+    fields["JobOffer__c"] = offerId;
   }
 
   return sf.create("Application__c", fields);
@@ -254,31 +254,37 @@ interface N8nPayload {
   };
   submittedAt: string;
 }
-
 async function triggerN8n(webhookPayload: N8nPayload): Promise<void> {
-  const webhookUrl = Deno.env.get("N8N_WEBHOOK_URL");
+  // 1. Get the URL and .trim() it to remove hidden spaces or newlines
+  //const rawUrl = Deno.env.get("N8N_WEBHOOK_URL")?.trim();
+  // TEST TEMPORAIRE
+  const rawUrl = "https://smart-recruit-domain-n8n.duckdns.org/webhook/submit-application";
 
-  if (!webhookUrl) {
-    // Non-fatal: log and continue. The recruiter can still see the SF record.
-    console.warn("[submit-application] N8N_WEBHOOK_URL not set — skipping n8n trigger");
+  // 2. Extra safety: Check if it's empty or still contains a '#' 
+  if (!rawUrl || rawUrl.startsWith("#")) {
+    console.warn("[submit-application] N8N_WEBHOOK_URL is empty or commented out — skipping");
     return;
   }
 
-  const res = await fetch(webhookUrl, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(webhookPayload),
-  });
+  try {
+    // 3. Use the trimmed URL
+    const res = await fetch(rawUrl, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(webhookPayload),
+    });
 
-  if (!res.ok) {
-    // Non-fatal: log but don't fail the whole request
-    const body = await res.text();
-    console.error(`[submit-application] n8n webhook returned ${res.status}: ${body}`);
-  } else {
-    console.log("[submit-application] n8n webhook triggered successfully");
+    if (!res.ok) {
+      const body = await res.text();
+      console.error(`[submit-application] n8n webhook returned ${res.status}: ${body}`);
+    } else {
+      console.log("[submit-application] n8n webhook triggered successfully");
+    }
+  } catch (error) {
+    // 4. Catch network errors or "Invalid URL" errors so they aren't FATAL
+    console.error("[submit-application] Failed to call n8n webhook:", error.message);
   }
 }
-
 // ─── Main handler ─────────────────────────────────────────────────────────────
 
 Deno.serve(async (req: Request) => {
@@ -387,7 +393,7 @@ console.log(`[submit-application] Lead created successfully: ${leadId}`);
       leadId,
       applicationId,
       storageKey,
-      message: created
+      message: "created"
         ? "Application submitted and candidate profile created."
         : "Application submitted. Your existing profile has been updated.",
     };

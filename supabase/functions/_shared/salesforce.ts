@@ -198,7 +198,7 @@ export function createSalesforceClient(): SalesforceClient {
     fields: Record<string, unknown>
   ): Promise<string> {
     // We use v58.0 here as it is the most stable version for Developer Orgs
-    const path = `/services/data/v58.0/sobjects/${objectName}/`;
+    const path = `/services/data/v59.0/sobjects/${objectName}`;
     
     console.log(`[DEBUG] Salesforce POST Path: ${path}`);
     console.log(`[DEBUG] Sending Fields:`, JSON.stringify(fields));
